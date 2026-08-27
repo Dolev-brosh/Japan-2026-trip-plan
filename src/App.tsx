@@ -574,7 +574,7 @@ export default function App() {
   };
 
   return (
-    <div dir="rtl" className="flex flex-col h-[100dvh] w-full bg-[#F9FAFB] font-sans overflow-hidden text-[#1F2937] selection:bg-emerald-100">
+    <div dir="rtl" className="flex flex-col fixed inset-0 w-full bg-[#F9FAFB] font-sans overflow-hidden text-[#1F2937] selection:bg-emerald-100">
        
        {/* Header */}
        <header className="sticky top-0 w-full flex justify-between items-center px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shadow-sm shrink-0 z-50">
