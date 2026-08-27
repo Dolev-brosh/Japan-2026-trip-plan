@@ -384,6 +384,16 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: 
               placeholder="שם המלון"
             />
           </div>
+          <div className="col-span-2">
+            <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">קישור למלון (אופציונלי)</label>
+            <input 
+              value={formData.hotelLink}
+              onChange={e => handleChange('hotelLink', e.target.value)}
+              className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" 
+              placeholder="https://..."
+              dir="ltr"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -459,7 +469,7 @@ export default function App() {
     if (loadingAuth) return;
     
     if (user) {
-      const docRef = doc(db, 'users', user.uid, 'itinerary', 'main');
+      const docRef = doc(db, 'users', user.uid, 'trip', 'itinerary');
       const unsubscribe = onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
@@ -498,7 +508,7 @@ export default function App() {
     setDays(newDays);
 
     if (user) {
-      const docRef = doc(db, 'users', user.uid, 'itinerary', 'main');
+      const docRef = doc(db, 'users', user.uid, 'trip', 'itinerary');
       await setDoc(docRef, { title: newTitle, days: newDays }, { merge: true });
     } else {
       localStorage.setItem('itinerary_main', JSON.stringify({ title: newTitle, days: newDays }));
