@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
 import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft } from 'lucide-react';
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
@@ -449,13 +449,34 @@ export default function App() {
   const [tripTitle, setTripTitle] = useState('מסלול טיול ביפן');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   
-  const [expandedDayId, setExpandedDayId] = useState<string | null>('4');
+  const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
+  const hasInitializedExpand = useRef(false);
   
   const [editingDay, setEditingDay] = useState<Day | null>(null);
   const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
 
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+
+  const processLoadedData = (loadedDays: Day[], loadedTitle: string) => {
+    const today = new Date();
+    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    let activeDayId: string | null = null;
+    const computedDays = loadedDays.map(day => {
+      const isCurrent = day.date === todayString;
+      if (isCurrent) activeDayId = day.id;
+      return { ...day, isCurrent };
+    });
+    
+    setDays(computedDays);
+    setTripTitle(loadedTitle);
+    
+    if (!hasInitializedExpand.current && activeDayId) {
+       setExpandedDayId(activeDayId);
+       hasInitializedExpand.current = true;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -473,8 +494,7 @@ export default function App() {
       const unsubscribe = onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
-          setDays(data.days || []);
-          setTripTitle(data.title || 'מסלול טיול ביפן');
+          processLoadedData(data.days || [], data.title || 'מסלול טיול ביפן');
         } else {
           const localData = localStorage.getItem('itinerary_main');
           let dataToSave = { title: 'מסלול טיול ביפן', days: initialDays };
@@ -483,6 +503,7 @@ export default function App() {
                 dataToSave = JSON.parse(localData);
              } catch (e) {}
           }
+          processLoadedData(dataToSave.days || [], dataToSave.title || 'מסלול טיול ביפן');
           setDoc(docRef, dataToSave, { merge: true });
         }
       });
@@ -492,26 +513,33 @@ export default function App() {
       if (localData) {
         try {
            const parsed = JSON.parse(localData);
-           setDays(parsed.days || []);
-           setTripTitle(parsed.title || 'מסלול טיול ביפן');
+           processLoadedData(parsed.days || [], parsed.title || 'מסלול טיול ביפן');
         } catch (e) {
-           setDays(initialDays);
+           processLoadedData(initialDays, 'מסלול טיול ביפן');
         }
       } else {
-        setDays(initialDays);
+        processLoadedData(initialDays, 'מסלול טיול ביפן');
       }
     }
   }, [user, loadingAuth]);
 
   const syncData = async (newTitle: string, newDays: Day[]) => {
+    const today = new Date();
+    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    const computedDays = newDays.map(day => ({
+      ...day,
+      isCurrent: day.date === todayString
+    }));
+
     setTripTitle(newTitle);
-    setDays(newDays);
+    setDays(computedDays);
 
     if (user) {
       const docRef = doc(db, 'users', user.uid, 'trip', 'itinerary');
-      await setDoc(docRef, { title: newTitle, days: newDays }, { merge: true });
+      await setDoc(docRef, { title: newTitle, days: computedDays }, { merge: true });
     } else {
-      localStorage.setItem('itinerary_main', JSON.stringify({ title: newTitle, days: newDays }));
+      localStorage.setItem('itinerary_main', JSON.stringify({ title: newTitle, days: computedDays }));
     }
   };
 
@@ -546,10 +574,10 @@ export default function App() {
   };
 
   return (
-    <div dir="rtl" className="flex flex-col h-screen w-full bg-[#F9FAFB] font-sans overflow-hidden text-[#1F2937] selection:bg-emerald-100">
+    <div dir="rtl" className="flex flex-col h-[100dvh] w-full bg-[#F9FAFB] font-sans overflow-hidden text-[#1F2937] selection:bg-emerald-100">
        
        {/* Header */}
-       <header className="flex justify-between items-center px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shadow-sm shrink-0 z-20">
+       <header className="sticky top-0 w-full flex justify-between items-center px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shadow-sm shrink-0 z-50">
           <div className="flex items-center gap-3">
              <div className="bg-emerald-500 p-2 rounded-lg text-white">
                  <MapPin size={20} />
@@ -612,7 +640,7 @@ export default function App() {
           <div className={`w-full ${editingDay ? 'hidden lg:block lg:w-3/5' : ''} lg:w-3/5 lg:border-l border-gray-200 overflow-y-auto p-4 sm:p-6 space-y-4 pb-32`}>
              <div className="max-w-2xl mx-auto relative pr-12 mt-2">
                 {/* Vertical Line */}
-                <div className="absolute top-8 bottom-4 right-[1.15rem] w-px bg-gray-200 z-0" />
+                <div className="absolute top-8 bottom-4 right-[1rem] w-px bg-gray-200 z-0" />
                 
                 {days.map((day, index) => (
                   <div key={day.id} className="relative z-10">
@@ -659,7 +687,7 @@ export default function App() {
           
           {/* Floating Action Button */}
           {!editingDay && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 lg:left-auto lg:right-[30%] lg:translate-x-1/2 z-40">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 lg:left-auto lg:right-[30%] lg:translate-x-1/2 z-50">
                <button 
                  onClick={() => setEditingDay(emptyDay)}
                  className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 font-bold transition-transform active:scale-95"
