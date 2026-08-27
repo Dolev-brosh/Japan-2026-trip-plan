@@ -1,0 +1,27 @@
+{
+  "collections": {
+    "users": {
+      "description": "User profiles",
+      "rules": {
+        "read": "request.auth != null && request.auth.uid == userId",
+        "write": "request.auth != null && request.auth.uid == userId"
+      },
+      "schema": {
+        "createdAt": "timestamp"
+      },
+      "subcollections": {
+        "itinerary": {
+          "description": "User's itineraries",
+          "rules": {
+            "read": "request.auth != null && request.auth.uid == userId",
+            "write": "request.auth != null && request.auth.uid == userId"
+          },
+          "schema": {
+            "title": "string",
+            "days": "array"
+          }
+        }
+      }
+    }
+  }
+}
