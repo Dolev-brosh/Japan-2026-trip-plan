@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
-import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft } from 'lucide-react';
+import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical } from 'lucide-react';
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
@@ -18,6 +18,7 @@ interface Day {
   totalNights: number;
   description: string;
   isCurrent: boolean;
+  isPast?: boolean;
 }
 
 const initialDays: Day[] = [
@@ -130,6 +131,7 @@ const SwipeableCard = ({
   onDeleteRequest: (id: string) => void;
 }) => {
   const controls = useAnimation();
+  const [menuOpen, setMenuOpen] = useState(false);
   
   const handleDragEnd = (e: any, info: any) => {
     // Reveal delete action if dragged far enough to the left
@@ -173,37 +175,63 @@ const SwipeableCard = ({
                {day.isCurrent && isExpanded && (
                   <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block uppercase">פעיל כעת</span>
                )}
-               <h3 className={`font-bold ${day.isCurrent ? 'text-emerald-900' : 'text-gray-700'} ${isExpanded ? 'text-lg leading-tight' : 'text-base'}`}>
+               <h3 className={`font-bold text-base leading-tight ${day.isCurrent ? 'text-emerald-900' : 'text-gray-700'}`}>
                  {day.title || 'יום חדש'}
                </h3>
                
-               {!isExpanded && day.subtitle && (
-                 <p className="text-xs text-gray-400 mt-1 line-clamp-1">{formatDate(day.date)} • {day.subtitle}</p>
-               )}
-               
-               {isExpanded && (
-                 <p className="text-sm text-emerald-700 opacity-80 mt-0.5">{day.subtitle}</p>
+               {(day.date || day.subtitle) && (
+                 <p className="text-xs text-gray-400 mt-1 line-clamp-1">
+                   {day.date ? formatDate(day.date) : ''}
+                   {day.date && day.subtitle ? ' • ' : ''}
+                   {day.subtitle || ''}
+                 </p>
                )}
             </div>
             
-            <div className="flex flex-col items-end gap-1 text-gray-400 shrink-0 text-left">
+            <div className="flex flex-col items-end shrink-0 text-left relative">
                {isExpanded ? (
                  <>
-                   <p className="text-xs font-mono text-emerald-600 font-bold">{formatDate(day.date)}</p>
-                   <div className="mt-4 flex gap-2">
-                     <button 
-                       onClick={(e) => { e.stopPropagation(); onEdit(day); }} 
-                       className="p-1.5 bg-white border border-emerald-200 rounded-md shadow-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
-                     >
-                        <Pencil size={14} strokeWidth={2.5} />
-                     </button>
-                     <button 
-                       onClick={(e) => { e.stopPropagation(); onDeleteRequest(day.id); }} 
-                       className="p-1.5 bg-white border border-red-100 rounded-md shadow-sm text-red-500 hover:bg-red-50 transition-colors"
-                     >
-                        <Trash2 size={14} strokeWidth={2.5} />
-                     </button>
-                   </div>
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+                     className="p-1 text-gray-400 hover:text-gray-700 transition-colors"
+                   >
+                     <MoreVertical size={20} />
+                   </button>
+                   
+                   <AnimatePresence>
+                     {menuOpen && (
+                       <motion.div 
+                         initial={{ opacity: 0, scale: 0.95 }}
+                         animate={{ opacity: 1, scale: 1 }}
+                         exit={{ opacity: 0, scale: 0.95 }}
+                         transition={{ duration: 0.1 }}
+                         className="absolute top-8 left-0 min-w-[120px] bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden z-20"
+                       >
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit(day); }}
+                           className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                         >
+                           <Pencil size={14} />
+                           עריכה
+                         </button>
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDeleteRequest(day.id); }}
+                           className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-50"
+                         >
+                           <Trash2 size={14} />
+                           מחיקה
+                         </button>
+                       </motion.div>
+                     )}
+                   </AnimatePresence>
+                   
+                   {/* Click away listener for menu */}
+                   {menuOpen && (
+                     <div 
+                       className="fixed inset-0 z-10" 
+                       onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+                     />
+                   )}
                  </>
                ) : (
                  <ChevronLeft size={18} className="text-gray-400" />
@@ -236,7 +264,7 @@ const SwipeableCard = ({
                      </div>
                    )}
                    {day.hotelName && (
-                     <div className="col-span-2 sm:col-span-1">
+                     <div className="col-span-2">
                        <p className={`text-xs font-bold mb-1 ${day.isCurrent ? 'text-emerald-600' : 'text-gray-500'}`}>שם המלון:</p>
                        <div>
                           {day.hotelLink ? (
@@ -247,7 +275,7 @@ const SwipeableCard = ({
                               <span className={`font-medium ${day.isCurrent ? 'text-emerald-900' : 'text-gray-800'}`}>{day.hotelName}</span>
                           )}
                           {(day.nightNumber || day.totalNights) ? (
-                             <span className={`text-[11px] ml-2 font-medium ${day.isCurrent ? 'text-emerald-700/70' : 'text-gray-400'}`}>
+                             <span className={`text-[11px] mr-1 font-medium ${day.isCurrent ? 'text-emerald-700/70' : 'text-gray-400'}`}>
                                (לילה {day.nightNumber} מתוך {day.totalNights})
                              </span>
                           ) : null}
@@ -258,9 +286,13 @@ const SwipeableCard = ({
                    {day.description && (
                      <div className="col-span-2 mt-2">
                        <p className={`text-xs font-bold mb-1 ${day.isCurrent ? 'text-emerald-600' : 'text-gray-500'}`}>תיאור המסלול היומי:</p>
-                       <p className={`leading-relaxed text-sm ${day.isCurrent ? 'text-emerald-800 italic' : 'text-gray-700'}`}>
-                          {day.description}
-                       </p>
+                       <div className={`space-y-1 w-full break-words leading-relaxed text-sm ${day.isCurrent ? 'text-emerald-800 italic' : 'text-gray-700'}`}>
+                         {day.description.split(/\r?\n/).map((line, idx) => (
+                           <p key={idx} className="min-h-[1rem]">
+                             {line || '\u00A0'}
+                           </p>
+                         ))}
+                       </div>
                      </div>
                    )}
                 </div>
@@ -300,8 +332,29 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, o
 const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: () => void, onSave: (d: Day) => void }) => {
   const [formData, setFormData] = useState<Day>(day);
   
-  const handleChange = (field: keyof Day, value: any) => {
+    const handleChange = (field: keyof Day, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePasteDescription = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData('Text');
+    if (pastedText.startsWith('"') && pastedText.endsWith('"')) {
+      e.preventDefault();
+      const cleanedText = pastedText.replace(/^"|"$/g, '');
+      
+      const target = e.target as HTMLTextAreaElement;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      
+      const currentDesc = formData.description || '';
+      const newValue = currentDesc.substring(0, start) + cleanedText + currentDesc.substring(end);
+      
+      handleChange('description', newValue);
+      
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + cleanedText.length;
+      }, 0);
+    }
   };
 
   return (
@@ -402,8 +455,9 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: 
             <input 
               type="number" min="1" 
               value={formData.nightNumber || ''}
-              onChange={e => handleChange('nightNumber', parseInt(e.target.value) || 0)}
-              className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" 
+              disabled
+              readOnly
+              className="w-full border-b border-gray-200 py-2 outline-none text-sm bg-gray-50 text-gray-400 cursor-not-allowed" 
             />
           </div>
           <div>
@@ -423,7 +477,8 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: 
             rows={5} 
             value={formData.description}
             onChange={e => handleChange('description', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg p-3 h-32 focus:border-emerald-500 outline-none text-sm resize-none bg-transparent mt-1 leading-relaxed" 
+            onPaste={handlePasteDescription}
+            className="w-full border border-gray-200 rounded-lg p-3 min-h-[120px] focus:border-emerald-500 outline-none text-sm resize-y bg-transparent mt-1 leading-relaxed" 
             placeholder="פרט את המסלול המתוכנן כאן..."
           />
         </div>
@@ -451,6 +506,18 @@ export default function App() {
   
   const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
   const hasInitializedExpand = useRef(false);
+  const currentDayRef = useRef<HTMLDivElement>(null);
+  const hasScrolledToCurrent = useRef(false);
+
+  useEffect(() => {
+    if (currentDayRef.current && !hasScrolledToCurrent.current) {
+      setTimeout(() => {
+        currentDayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      hasScrolledToCurrent.current = true;
+    }
+  }, [days]);
+
   
   const [editingDay, setEditingDay] = useState<Day | null>(null);
   const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
@@ -465,8 +532,9 @@ export default function App() {
     let activeDayId: string | null = null;
     const computedDays = loadedDays.map(day => {
       const isCurrent = day.date === todayString;
+      const isPast = day.date < todayString;
       if (isCurrent) activeDayId = day.id;
-      return { ...day, isCurrent };
+      return { ...day, isCurrent, isPast };
     });
     
     setDays(computedDays);
@@ -529,7 +597,8 @@ export default function App() {
     
     const computedDays = newDays.map(day => ({
       ...day,
-      isCurrent: day.date === todayString
+      isCurrent: day.date === todayString,
+      isPast: day.date < todayString
     }));
 
     setTripTitle(newTitle);
@@ -546,6 +615,53 @@ export default function App() {
   const handleTitleChange = (newTitle: string) => {
     setIsEditingTitle(false);
     syncData(newTitle, days);
+  };
+
+  
+    const handleAddDayClick = () => {
+    let nextDateStr = '';
+    let inheritedAccommodation = { ...emptyDay };
+    
+    if (days.length > 0) {
+      // Sort days by date to find the last day chronologically
+      const sortedDays = [...days]
+        .filter(d => d.date)
+        .sort((a, b) => a.date.localeCompare(b.date));
+        
+      if (sortedDays.length > 0) {
+        const lastDay = sortedDays[sortedDays.length - 1];
+        
+        // Date increment
+        const lastDate = new Date(lastDay.date);
+        if (!isNaN(lastDate.getTime())) {
+          lastDate.setDate(lastDate.getDate() + 1);
+          nextDateStr = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}-${String(lastDate.getDate()).padStart(2, '0')}`;
+        }
+        
+        // Accommodation inheritance
+        if (lastDay.hotelName && (lastDay.nightNumber || 0) < (lastDay.totalNights || 1)) {
+          inheritedAccommodation = {
+            ...inheritedAccommodation,
+            city: lastDay.city || '',
+            accommodationArea: lastDay.accommodationArea || '',
+            hotelName: lastDay.hotelName || '',
+            hotelLink: lastDay.hotelLink || '',
+            totalNights: lastDay.totalNights || 1,
+            nightNumber: (lastDay.nightNumber || 0) + 1
+          };
+        }
+      }
+    }
+    
+    if (!nextDateStr) {
+      const today = new Date();
+      nextDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    }
+
+    setEditingDay({
+      ...inheritedAccommodation,
+      date: nextDateStr
+    });
   };
 
   const toggleDay = (id: string) => {
@@ -643,7 +759,7 @@ export default function App() {
                 <div className="absolute top-8 bottom-4 right-[1rem] w-px bg-gray-200 z-0" />
                 
                 {days.map((day, index) => (
-                  <div key={day.id} className="relative z-10">
+                  <div key={day.id} className={`relative z-10 ${day.isPast ? 'opacity-70' : ''}`} ref={day.isCurrent ? currentDayRef : null}>
                     {/* Stepper Dot */}
                     <div 
                       className={`absolute top-4 -right-[3.15rem] z-10 mt-1 w-10 h-10 rounded-full border-4 border-[#F9FAFB] flex items-center justify-center transition-colors duration-300
@@ -689,7 +805,7 @@ export default function App() {
           {!editingDay && (
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 lg:left-auto lg:right-[30%] lg:translate-x-1/2 z-50">
                <button 
-                 onClick={() => setEditingDay(emptyDay)}
+                 onClick={handleAddDayClick}
                  className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 font-bold transition-transform active:scale-95"
                >
                   <Plus size={20} strokeWidth={3} />
