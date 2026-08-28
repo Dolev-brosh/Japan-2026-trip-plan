@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
 import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical, Download, Upload, Ticket, Bell } from 'lucide-react';
+import { HexColorPicker, HexColorInput } from 'react-colorful';
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
@@ -29,7 +30,7 @@ export interface TimelineItem {
   isPast?: boolean;
   
   color?: string;
-  emoji?: string;
+  textColor?: 'white' | 'black';
   fields?: TicketField[];
   notes?: string;
 }
@@ -220,12 +221,19 @@ const SwipeableCard = ({
   const isTicket = day.type === 'ticket';
   const isReminder = day.type === 'reminder';
 
+  const isDarkText = day.textColor === 'black';
+  const nonDayTitleClass = isDarkText ? 'text-gray-900' : 'text-white';
+  const nonDaySubtitleClass = isDarkText ? 'text-gray-700' : 'text-white/80';
+  const nonDayBorderClass = isDarkText ? 'border-gray-900/20' : 'border-white/20';
+  const nonDayTextMutedClass = isDarkText ? 'text-gray-600' : 'text-white/70';
+  const nonDayBgClass = isDarkText ? 'bg-black/5' : 'bg-black/10';
+  const nonDayIconClass = isDarkText ? 'text-gray-800 hover:text-gray-900' : 'text-white hover:text-gray-200';
+
   const cardStyle = isDay ? 
     (day.isCurrent ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-white border-gray-200 text-gray-700') :
-    isReminder ? 'border-gray-200 text-gray-800' : 
-    'text-white border-transparent';
+    `${isDarkText ? 'text-gray-900' : 'text-white'} border-transparent`;
 
-  const bgColor = isReminder ? (day.color || '#fef3c7') : isTicket ? (day.color || '#10b981') : (day.isCurrent ? '#ecfdf5' : '#ffffff');
+  const bgColor = !isDay ? (day.color || (isTicket ? '#10b981' : '#f59e0b')) : (day.isCurrent ? '#ecfdf5' : '#ffffff');
 
   return (
     <div className="relative w-full rounded-[16px] overflow-hidden mb-5 bg-[#F9FAFB]">
@@ -254,18 +262,15 @@ const SwipeableCard = ({
        >
           {/* Card Header */}
           <div 
-            className="p-4 cursor-pointer flex items-start justify-between"
+            className={`px-4 cursor-pointer flex items-start justify-between transition-all duration-300 ease-in-out ${!isDay && !isExpanded ? 'py-2' : 'py-4'}`}
             onClick={onToggle}
           >
             <div className="flex-1 pl-4 flex gap-3 items-start">
-               {isTicket && day.emoji && (
-                 <div className="text-sm mt-0.5 opacity-90">{day.emoji}</div>
-               )}
                <div>
                  {day.isCurrent && isDay && isExpanded && (
                     <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block uppercase">פעיל כעת</span>
                  )}
-                 <h3 className={`font-bold leading-tight ${isTicket ? 'text-white text-sm' : 'text-base'}`}>
+                 <h3 className={`font-bold leading-tight ${!isDay ? `${nonDayTitleClass} text-xs` : 'text-base'}`}>
                    {day.title || (isDay ? `יום ${index + 1}` : isTicket ? 'כרטיס' : 'תזכורת')}
                  </h3>
                  
@@ -302,7 +307,7 @@ const SwipeableCard = ({
                    <motion.div 
                      initial={false}
                      animate={{ height: isExpanded ? 'auto' : 0, opacity: isExpanded ? 1 : 0, marginTop: isExpanded ? '0.25rem' : 0 }}
-                     className={`text-xs overflow-hidden ${isTicket ? 'text-white/80' : 'text-gray-500'}`}
+                     className={`text-xs overflow-hidden ${!isDay ? nonDaySubtitleClass : 'text-gray-500'}`}
                    >
                      {formatDate(day.date)}
                    </motion.div>
@@ -315,7 +320,7 @@ const SwipeableCard = ({
                  <>
                    <button 
                      onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-                     className={`p-1 transition-all duration-200 ease-in-out active:scale-95 ${isTicket ? 'text-white hover:text-gray-200' : 'text-gray-400 hover:text-gray-700'}`}
+                     className={`p-1 transition-all duration-200 ease-in-out active:scale-95 ${!isDay ? nonDayIconClass : 'text-gray-400 hover:text-gray-700'}`}
                    >
                      <MoreVertical className="w-5 h-5" />
                    </button>
@@ -361,10 +366,15 @@ const SwipeableCard = ({
           </div>
 
           {/* Expanded Details */}
-          <div 
-            className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-          >
-            <div className="overflow-hidden">
+          <AnimatePresence initial={false}>
+            {isExpanded && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
                 <div className="px-4 pb-4">
                   {/* Day Content */}
                   {isDay && (
@@ -431,15 +441,15 @@ const SwipeableCard = ({
 
                   {/* Ticket Content */}
                   {isTicket && (
-                    <div className="pt-4 border-t border-white/20">
+                    <div className={`pt-4 border-t ${nonDayBorderClass}`}>
                       {(!day.fields || day.fields.length === 0) ? (
-                        <p className="text-white/70 text-sm italic">אין פרטים נוספים</p>
+                        <p className={`${nonDayTextMutedClass} text-sm italic`}>אין פרטים נוספים</p>
                       ) : (
                         <div className="grid grid-cols-2 gap-4">
                           {day.fields.map(f => (
-                            <div key={f.id} className="bg-black/10 rounded-lg p-3 backdrop-blur-sm">
-                              <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1 font-bold">{f.label}</p>
-                              <p className="text-sm font-semibold text-white truncate">{f.value}</p>
+                            <div key={f.id} className={`${nonDayBgClass} rounded-lg p-3 backdrop-blur-sm`}>
+                              <p className={`text-[10px] ${nonDayTextMutedClass} uppercase tracking-wider mb-1 font-bold`}>{f.label}</p>
+                              <p className={`text-sm font-semibold ${nonDayTitleClass} truncate`}>{f.value}</p>
                             </div>
                           ))}
                         </div>
@@ -449,13 +459,14 @@ const SwipeableCard = ({
 
                   {/* Reminder Content */}
                   {isReminder && (
-                    <div className="pt-4 border-t border-black/5 text-sm leading-relaxed text-gray-700 font-medium whitespace-pre-wrap break-words">
-                      {day.notes || <span className="text-gray-400 italic">אין תוכן...</span>}
+                    <div className={`pt-4 border-t ${nonDayBorderClass} text-sm leading-relaxed ${nonDayTitleClass} font-medium whitespace-pre-wrap break-words`}>
+                      {day.notes || <span className={`${nonDayTextMutedClass} italic`}>אין תוכן...</span>}
                     </div>
                   )}
                 </div>
-            </div>
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
        </motion.div>
     </div>
   );
@@ -485,6 +496,7 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, o
 
 const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, onClose: () => void, onSave: (d: TimelineItem) => void }) => {
   const [formData, setFormData] = useState<TimelineItem>(day);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   
   const handleChange = (field: keyof TimelineItem, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -642,26 +654,61 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
           {formData.type === 'ticket' && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wider">צבע רקע</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {ticketColors.map(c => (
-                      <button 
-                        key={c} onClick={() => handleChange('color', c)}
-                        className={`w-8 h-8 rounded-full border-2 transition-transform active:scale-90 ${formData.color === c ? 'border-gray-800 scale-110' : 'border-transparent'}`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
+                  <button 
+                    onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
+                    className="w-16 h-10 rounded-lg border border-gray-200 shadow-sm flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
+                    style={{ backgroundColor: formData.color || '#10b981' }}
+                  />
+                  <AnimatePresence>
+                    {isColorPickerOpen && (
+                      <>
+                        <div className="fixed inset-0 z-[110]" onClick={() => setIsColorPickerOpen(false)} />
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="fixed inset-0 z-[120] flex items-center justify-center pointer-events-none"
+                        >
+                          <div className="pointer-events-auto bg-white p-4 shadow-2xl rounded-2xl border border-gray-100 flex flex-col gap-4">
+                            <HexColorPicker 
+                              color={formData.color || '#10b981'} 
+                              onChange={(newColor) => handleChange('color', newColor)} 
+                            />
+                            <div className="flex items-center gap-2" dir="ltr">
+                              <span className="text-gray-500 text-sm font-semibold uppercase">HEX:</span>
+                              <HexColorInput 
+                                color={formData.color || '#10b981'} 
+                                onChange={(newColor) => handleChange('color', newColor)} 
+                                prefixed
+                                className="border border-gray-200 rounded-md px-3 py-1.5 text-sm outline-none focus:border-emerald-500 w-full uppercase"
+                              />
+                            </div>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wider">צבע טקסט</label>
+                  <div className="flex bg-gray-100 rounded-lg p-1 w-fit h-10">
+                    <button 
+                      onClick={() => handleChange('textColor', 'white')}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${(!formData.textColor || formData.textColor === 'white') ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      לבן
+                    </button>
+                    <button 
+                      onClick={() => handleChange('textColor', 'black')}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${formData.textColor === 'black' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      שחור
+                    </button>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wider">אמוג'י (לוגו)</label>
-                  <input 
-                    value={formData.emoji || ''} onChange={e => handleChange('emoji', e.target.value)}
-                    className="w-16 h-10 border border-gray-200 rounded-lg text-center text-xl focus:border-emerald-500 outline-none" 
-                    maxLength={2}
-                  />
-                </div>
+
               </div>
               
               <div>
@@ -692,16 +739,60 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
 
           {formData.type === 'reminder' && (
             <div className="space-y-6">
-              <div>
+              <div className="grid grid-cols-2 gap-4">
+              <div className="relative">
                 <label className="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wider">צבע רקע</label>
-                <div className="flex gap-2 flex-wrap">
-                  {reminderColors.map(c => (
+                <button 
+                  onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
+                  className="w-16 h-10 rounded-lg border border-gray-200 shadow-sm flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
+                  style={{ backgroundColor: formData.color || '#f59e0b' }}
+                />
+                <AnimatePresence>
+                  {isColorPickerOpen && (
+                    <>
+                      <div className="fixed inset-0 z-[110]" onClick={() => setIsColorPickerOpen(false)} />
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="fixed inset-0 z-[120] flex items-center justify-center pointer-events-none"
+                      >
+                        <div className="pointer-events-auto bg-white p-4 shadow-2xl rounded-2xl border border-gray-100 flex flex-col gap-4">
+                          <HexColorPicker 
+                            color={formData.color || '#f59e0b'} 
+                            onChange={(newColor) => handleChange('color', newColor)} 
+                          />
+                          <div className="flex items-center gap-2" dir="ltr">
+                            <span className="text-gray-500 text-sm font-semibold uppercase">HEX:</span>
+                            <HexColorInput 
+                              color={formData.color || '#f59e0b'} 
+                              onChange={(newColor) => handleChange('color', newColor)} 
+                              prefixed
+                              className="border border-gray-200 rounded-md px-3 py-1.5 text-sm outline-none focus:border-emerald-500 w-full uppercase"
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wider">צבע טקסט</label>
+                  <div className="flex bg-gray-100 rounded-lg p-1 w-fit h-10">
                     <button 
-                      key={c} onClick={() => handleChange('color', c)}
-                      className={`w-8 h-8 rounded-full border-2 transition-transform active:scale-90 ${formData.color === c ? 'border-gray-400 scale-110' : 'border-gray-200'}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
+                      onClick={() => handleChange('textColor', 'white')}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${(!formData.textColor || formData.textColor === 'white') ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      לבן
+                    </button>
+                    <button 
+                      onClick={() => handleChange('textColor', 'black')}
+                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${formData.textColor === 'black' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      שחור
+                    </button>
+                  </div>
                 </div>
               </div>
               <div>
@@ -897,7 +988,7 @@ export default function App() {
       ...inheritedAccommodation,
       type,
       color: type === 'ticket' ? '#10b981' : type === 'reminder' ? '#fef3c7' : undefined,
-      emoji: type === 'ticket' ? '🎫' : undefined,
+      
       fields: type === 'ticket' ? [] : undefined,
       notes: type === 'reminder' ? '' : undefined,
       date: nextDateStr
@@ -1090,29 +1181,49 @@ export default function App() {
                 {/* Vertical Line */}
                 <div className="absolute top-8 bottom-4 right-[1rem] w-px bg-gray-200 z-0" />
                 
-                {days.map((day, index) => (
-                  <div key={day.id} className={`relative z-10 ${day.isPast ? 'opacity-70' : ''}`} ref={day.isCurrent ? currentDayRef : null}>
-                    {/* Stepper Dot */}
-                    {day.isCurrent ? (
-                      <CurrentDayStepper />
-                    ) : (
-                      <div 
-                        className="absolute top-4 -right-[52.4px] z-10 w-10 h-10 rounded-full border-4 border-[#F9FAFB] flex items-center justify-center transition-colors duration-300 bg-gray-100 text-gray-400"
-                      >
-                         <span className="text-xs font-bold">{index + 1 < 10 ? `0${index + 1}` : index + 1}</span>
-                      </div>
-                    )}
-                    
-                    <SwipeableCard 
-                      day={day}
-                      index={index}
-                      isExpanded={expandedDayId === day.id}
-                      onToggle={() => toggleDay(day.id)}
-                      onEdit={setEditingItem}
-                      onDeleteRequest={setDeletingDayId}
-                    />
-                  </div>
-                ))}
+                {days.map((day, index) => {
+                  const isDay = !day.type || day.type === 'day';
+                  const isTicket = day.type === 'ticket';
+                  const isReminder = day.type === 'reminder';
+                  
+                  // Compute the day number (only count actual days up to this index)
+                  const dayNumber = days.slice(0, index + 1).filter(d => !d.type || d.type === 'day').length;
+                  
+                  return (
+                    <div key={day.id} className={`relative z-10 ${day.isPast ? 'opacity-70' : ''}`} ref={day.isCurrent ? currentDayRef : null}>
+                      {/* Stepper Dot */}
+                      {day.isCurrent && isDay ? (
+                        <CurrentDayStepper />
+                      ) : (
+                        <div 
+                          className={`absolute top-4 z-10 rounded-full border-4 border-[#F9FAFB] flex items-center justify-center transition-colors duration-300 ${
+                            isDay 
+                              ? 'w-10 h-10 -right-[52.4px] bg-gray-100 text-gray-400' 
+                              : 'w-8 h-8 -right-[48.4px] text-white -mt-[14px]'
+                          }`}
+                          style={!isDay ? { backgroundColor: day.color || (isTicket ? '#10b981' : '#f59e0b') } : {}}
+                        >
+                           {isDay ? (
+                             <span className="text-xs font-bold">{dayNumber < 10 ? `0${dayNumber}` : dayNumber}</span>
+                           ) : isTicket ? (
+                             <Ticket size={14} />
+                           ) : (
+                             <Bell size={14} />
+                           )}
+                        </div>
+                      )}
+                      
+                      <SwipeableCard 
+                        day={day}
+                        index={dayNumber > 0 ? dayNumber - 1 : 0}
+                        isExpanded={expandedDayId === day.id}
+                        onToggle={() => toggleDay(day.id)}
+                        onEdit={setEditingItem}
+                        onDeleteRequest={setDeletingDayId}
+                      />
+                    </div>
+                  );
+                })}
                 
                 {days.length === 0 && (
                   <div className="text-center py-12 text-gray-400">
