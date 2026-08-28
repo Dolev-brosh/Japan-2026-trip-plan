@@ -243,11 +243,31 @@ const SwipeableCard = ({
                </h3>
                
                {(day.date || day.subtitle) && (
-                 <p className={`text-xs text-gray-400 mt-1 ${!isExpanded ? 'line-clamp-1' : ''}`}>
-                   {day.date ? formatDate(day.date) : ''}
-                   {day.date && day.subtitle ? ' • ' : ''}
-                   {day.subtitle || ''}
-                 </p>
+                 <div className="text-xs text-gray-400 mt-1 relative">
+                   <motion.div
+                     initial={false}
+                     animate={{ opacity: isExpanded ? 0 : 1 }}
+                     transition={{ duration: 0.2 }}
+                     className="absolute top-0 left-0 w-full line-clamp-1 pointer-events-none"
+                   >
+                     {day.date ? formatDate(day.date) : ''}
+                     {day.date && day.subtitle ? ' • ' : ''}
+                     {day.subtitle || ''}
+                   </motion.div>
+                   <motion.div
+                     initial={false}
+                     animate={{ 
+                       height: isExpanded ? 'auto' : '1rem',
+                       opacity: isExpanded ? 1 : 0 
+                     }}
+                     transition={{ duration: 0.3, ease: "easeInOut" }}
+                     className="overflow-hidden"
+                   >
+                     {day.date ? formatDate(day.date) : ''}
+                     {day.date && day.subtitle ? ' • ' : ''}
+                     {day.subtitle || ''}
+                   </motion.div>
+                 </div>
                )}
             </div>
             
@@ -258,7 +278,7 @@ const SwipeableCard = ({
                      onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                      className="p-1 text-gray-400 hover:text-gray-700 transition-all duration-200 ease-in-out active:scale-95"
                    >
-                     <MoreVertical size={20} />
+                     <MoreVertical className="w-5 h-5" />
                    </button>
                    
                    <AnimatePresence>
@@ -274,14 +294,14 @@ const SwipeableCard = ({
                            onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit(day); }}
                            className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all duration-200 ease-in-out active:scale-95"
                          >
-                           <Pencil size={14} />
+                           <Pencil className="w-5 h-5" />
                            עריכה
                          </button>
                          <button 
                            onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDeleteRequest(day.id); }}
                            className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-50 transition-all duration-200 ease-in-out active:scale-95"
                          >
-                           <Trash2 size={14} />
+                           <Trash2 className="w-5 h-5" />
                            מחיקה
                          </button>
                        </motion.div>
@@ -297,7 +317,7 @@ const SwipeableCard = ({
                    )}
                  </>
                ) : (
-                 <ChevronLeft size={18} className="text-gray-400" />
+                 <ChevronLeft className="w-5 h-5 text-gray-400" />
                )}
             </div>
           </div>

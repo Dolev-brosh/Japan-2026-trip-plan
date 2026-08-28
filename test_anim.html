@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-10">
+  <div id="container" class="w-64 bg-gray-100 p-4 cursor-pointer">
+    <h3>Title</h3>
+    <div id="wrapper" class="text-xs text-gray-400 mt-1 overflow-hidden transition-[max-height] duration-500 ease-in-out max-h-[1.125rem]">
+      <div id="text" class="line-clamp-1">
+        Some very long text that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on.
+      </div>
+    </div>
+  </div>
+  <script>
+    let expanded = false;
+    document.getElementById('container').onclick = () => {
+      expanded = !expanded;
+      const wrapper = document.getElementById('wrapper');
+      const text = document.getElementById('text');
+      if (expanded) {
+        wrapper.style.maxHeight = '10rem';
+        setTimeout(() => text.classList.remove('line-clamp-1'), 0);
+      } else {
+        wrapper.style.maxHeight = '1.125rem';
+        // Add line clamp back at the end of animation, or immediately?
+        // If immediately, it snaps the height.
+        // Better to add it at the end of the collapse.
+        setTimeout(() => text.classList.add('line-clamp-1'), 500);
+      }
+    };
+  </script>
+</body>
+</html>
