@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
-import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical } from 'lucide-react';
+import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical, Download, Upload } from 'lucide-react';
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
@@ -830,13 +830,97 @@ export default function App() {
     }
   };
 
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    setIsExportMenuOpen(false);
+    const dataStr = JSON.stringify(days, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "japan-itinerary.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setIsExportMenuOpen(false);
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const parsedDays = JSON.parse(content);
+        if (!Array.isArray(parsedDays)) {
+          throw new Error("Invalid data format: Expected an array of days.");
+        }
+        setDays(parsedDays);
+        syncData(tripTitle, parsedDays);
+      } catch (error) {
+        console.error("Failed to parse JSON file:", error);
+        alert("קובץ לא תקין. אנא ודא שהקובץ הוא בפורמט JSON תקין של מסלול.");
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div dir="rtl" className="flex flex-col fixed inset-0 w-full bg-[#F9FAFB] font-sans overflow-hidden text-[#1F2937] selection:bg-emerald-100">
        
        {/* Header */}
        <header className="sticky top-0 w-full flex justify-between items-center px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shadow-sm shrink-0 z-50">
-          <div className="flex items-center gap-3">
-             <img src="/favicon.svg" alt="לוגו אפליקציה" className="w-10 h-10 rounded-lg border border-gray-200 shadow-sm" />
+          <div className="flex items-center gap-3 relative">
+             <div className="relative">
+               <button 
+                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                 className="relative z-50 block transition-transform active:scale-95"
+               >
+                 <img src="/favicon.svg" alt="לוגו אפליקציה" className="w-10 h-10 rounded-lg border border-gray-200 shadow-sm hover:ring-2 hover:ring-emerald-100 transition-all" />
+               </button>
+               
+               <AnimatePresence>
+                 {isExportMenuOpen && (
+                   <motion.div 
+                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                     transition={{ duration: 0.15 }}
+                     className="absolute top-12 right-0 bg-white border border-gray-100 shadow-lg rounded-xl overflow-hidden min-w-[160px] z-50 flex flex-col"
+                   >
+                     <button onClick={handleExport} className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-3 transition-colors group">
+                       <Download size={16} className="text-gray-400 group-hover:text-emerald-500" />
+                       ייצוא נתונים
+                     </button>
+                     <button onClick={() => { setIsExportMenuOpen(false); fileInputRef.current?.click(); }} className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-3 transition-colors border-t border-gray-50 group">
+                       <Upload size={16} className="text-gray-400 group-hover:text-emerald-500" />
+                       ייבוא נתונים
+                     </button>
+                   </motion.div>
+                 )}
+               </AnimatePresence>
+             </div>
+             {isExportMenuOpen && (
+               <div className="fixed inset-0 z-40" onClick={() => setIsExportMenuOpen(false)} />
+             )}
+             
+             {/* Hidden file input */}
+             <input 
+               type="file" 
+               accept=".json"
+               ref={fileInputRef}
+               onChange={handleImport}
+               className="hidden"
+             />
+
              <div className="flex items-center gap-2">
                 {isEditingTitle ? (
                    <input 
