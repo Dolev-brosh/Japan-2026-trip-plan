@@ -239,7 +239,7 @@ const SwipeableCard = ({
                   <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block uppercase">פעיל כעת</span>
                )}
                <h3 className={`font-bold text-base leading-tight ${day.isCurrent ? 'text-emerald-900' : 'text-gray-700'}`}>
-                 {day.title ? `יום ${index + 1}: ${day.title}` : `יום ${index + 1}`}
+                 {day.title || `יום ${index + 1}`}
                </h3>
                
                {(day.date || day.subtitle) && (
