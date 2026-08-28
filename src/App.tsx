@@ -17,6 +17,7 @@ interface Day {
   nightNumber: number;
   totalNights: number;
   description: string;
+  transitDetails?: string;
   isCurrent: boolean;
   isPast?: boolean;
 }
@@ -106,6 +107,7 @@ const emptyDay: Day = {
   nightNumber: 1,
   totalNights: 1,
   description: '',
+  transitDetails: '',
   isCurrent: false,
 };
 
@@ -136,9 +138,9 @@ const SwipeableCard = ({
   const handleDragEnd = (e: any, info: any) => {
     // Reveal delete action if dragged far enough to the left
     if (!isExpanded && info.offset.x < -40) {
-       controls.start({ x: -80 });
+       controls.start({ x: -80, transition: { type: 'tween', duration: 0.3 } });
     } else {
-       controls.start({ x: 0 });
+       controls.start({ x: 0, transition: { type: 'tween', duration: 0.3 } });
     }
   };
 
@@ -164,7 +166,7 @@ const SwipeableCard = ({
          dragConstraints={{ left: -80, right: 0 }}
          onDragEnd={handleDragEnd}
          animate={controls}
-         className={`rounded-[16px] border relative z-10 w-full overflow-hidden transition-all ${day.isCurrent ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-200'}`}
+         className={`rounded-[16px] border relative z-10 w-full overflow-hidden transition-colors duration-300 ${day.isCurrent ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-gray-200'}`}
        >
           {/* Card Header (Always visible) */}
           <div 
@@ -180,7 +182,7 @@ const SwipeableCard = ({
                </h3>
                
                {(day.date || day.subtitle) && (
-                 <p className="text-xs text-gray-400 mt-1 line-clamp-1">
+                 <p className={`text-xs text-gray-400 mt-1 ${!isExpanded ? 'line-clamp-1' : ''}`}>
                    {day.date ? formatDate(day.date) : ''}
                    {day.date && day.subtitle ? ' • ' : ''}
                    {day.subtitle || ''}
@@ -193,7 +195,7 @@ const SwipeableCard = ({
                  <>
                    <button 
                      onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-                     className="p-1 text-gray-400 hover:text-gray-700 transition-colors"
+                     className="p-1 text-gray-400 hover:text-gray-700 transition-all duration-200 ease-in-out active:scale-95"
                    >
                      <MoreVertical size={20} />
                    </button>
@@ -209,14 +211,14 @@ const SwipeableCard = ({
                        >
                          <button 
                            onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit(day); }}
-                           className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                           className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-all duration-200 ease-in-out active:scale-95"
                          >
                            <Pencil size={14} />
                            עריכה
                          </button>
                          <button 
                            onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDeleteRequest(day.id); }}
-                           className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-50"
+                           className="w-full text-right px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-50 transition-all duration-200 ease-in-out active:scale-95"
                          >
                            <Trash2 size={14} />
                            מחיקה
@@ -240,17 +242,12 @@ const SwipeableCard = ({
           </div>
 
           {/* Expanded Details */}
-          <AnimatePresence initial={false}>
-            {isExpanded && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="overflow-hidden"
-              >
+          <div 
+            className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+          >
+            <div className="overflow-hidden">
                 <div className={`px-4 pb-4 ${day.isCurrent ? 'bg-emerald-50' : 'bg-white'}`}>
-                  <div className={`mt-2 pt-4 border-t ${day.isCurrent ? 'border-emerald-100' : 'border-gray-100'} grid grid-cols-2 gap-y-4 text-sm`}>
+                  <div className={`pt-4 border-t ${day.isCurrent ? 'border-emerald-100' : 'border-gray-100'} grid grid-cols-2 gap-y-4 text-sm`}>
                    {day.city && (
                      <div>
                        <p className={`text-xs font-bold mb-1 ${day.isCurrent ? 'text-emerald-600' : 'text-gray-500'}`}>עיר הטיול:</p>
@@ -283,6 +280,19 @@ const SwipeableCard = ({
                      </div>
                    )}
                    
+                   {day.transitDetails && day.transitDetails.trim() !== '' && (
+                     <div className="col-span-2 mt-2">
+                       <p className={`text-xs font-bold mb-1 ${day.isCurrent ? 'text-emerald-600' : 'text-gray-500'}`}>נסיעות:</p>
+                       <div className={`space-y-1 w-full break-words leading-relaxed text-sm ${day.isCurrent ? 'text-emerald-800 italic' : 'text-gray-700'}`}>
+                         {day.transitDetails.split(/\r?\n/).map((line, idx) => (
+                           <p key={idx} className="min-h-[1rem]">
+                             {line || '\u00A0'}
+                           </p>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                   
                    {day.description && (
                      <div className="col-span-2 mt-2">
                        <p className={`text-xs font-bold mb-1 ${day.isCurrent ? 'text-emerald-600' : 'text-gray-500'}`}>תיאור המסלול היומי:</p>
@@ -297,9 +307,8 @@ const SwipeableCard = ({
                    )}
                 </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            </div>
+          </div>
        </motion.div>
     </div>
   );
@@ -355,19 +364,49 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: 
         target.selectionStart = target.selectionEnd = start + cleanedText.length;
       }, 0);
     }
-  };
+  }
+  const handlePasteTransitDetails = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData('Text');
+    if (pastedText.startsWith('"') && pastedText.endsWith('"')) {
+      e.preventDefault();
+      const cleanedText = pastedText.replace(/^"|"$/g, '');
+      
+      const target = e.target as HTMLTextAreaElement;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      
+      const currentDesc = formData.transitDetails || '';
+      const newValue = currentDesc.substring(0, start) + cleanedText + currentDesc.substring(end);
+      
+      handleChange('transitDetails', newValue);
+      
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + cleanedText.length;
+      }, 0);
+    }
+  };;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 50 }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden lg:static lg:w-2/5 lg:border-r lg:border-gray-100 lg:z-0 lg:translate-y-0" 
-      dir="rtl"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" dir="rtl">
+      {/* Dark overlay */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Modal Container */}
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10"
+      >
       {/* Header */}
-      <div className="p-6 flex justify-between items-center border-b border-gray-100 shrink-0 bg-white shadow-sm lg:shadow-none">
+      <div className="p-6 flex justify-between items-center border-b border-gray-100 shrink-0 bg-white shadow-sm">
         <h2 className="text-xl font-bold text-gray-900">{formData.id ? 'עריכת יום טיול' : 'הוספת יום חדש'}</h2>
         <button onClick={onClose} className="text-sm text-gray-400 font-medium hover:text-emerald-600 transition-colors">ביטול</button>
       </div>
@@ -472,6 +511,18 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: 
         </div>
 
         <div>
+          <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">נסיעות (אופציונלי)</label>
+          <textarea 
+            rows={3} 
+            value={formData.transitDetails || ''}
+            onChange={e => handleChange('transitDetails', e.target.value)}
+            onPaste={handlePasteTransitDetails}
+            className="w-full border border-gray-200 rounded-lg p-3 min-h-[80px] focus:border-emerald-500 outline-none text-sm resize-y bg-transparent mt-1 leading-relaxed whitespace-pre-wrap" 
+            placeholder="פרט על רכבות, טיסות, נסיעות..."
+          />
+        </div>
+
+        <div>
           <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">תיאור מסלול יומי</label>
           <textarea 
             rows={5} 
@@ -488,12 +539,13 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: 
       <div className="p-6 bg-gray-50 border-t border-gray-100 shrink-0">
         <button 
           onClick={() => onSave(formData)}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-md active:scale-[0.98] transition-all"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-md transition-all duration-200 ease-in-out active:scale-95"
         >
           שמור שינויים
         </button>
       </div>
-    </motion.div>
+      </motion.div>
+    </div>
   )
 }
 
@@ -695,9 +747,7 @@ export default function App() {
        {/* Header */}
        <header className="sticky top-0 w-full flex justify-between items-center px-4 sm:px-8 py-4 bg-white border-b border-gray-200 shadow-sm shrink-0 z-50">
           <div className="flex items-center gap-3">
-             <div className="bg-emerald-500 p-2 rounded-lg text-white">
-                 <MapPin size={20} />
-             </div>
+             <img src="/favicon.svg" alt="לוגו אפליקציה" className="w-10 h-10 rounded-lg border border-gray-200 shadow-sm" />
              <div className="flex items-center gap-2">
                 {isEditingTitle ? (
                    <input 
@@ -806,7 +856,7 @@ export default function App() {
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 lg:left-auto lg:right-[30%] lg:translate-x-1/2 z-50">
                <button 
                  onClick={handleAddDayClick}
-                 className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 font-bold transition-transform active:scale-95"
+                 className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-emerald-700 font-bold transition-all duration-200 ease-in-out active:scale-95"
                >
                   <Plus size={20} strokeWidth={3} />
                   <span>הוספת יום חדש</span>
