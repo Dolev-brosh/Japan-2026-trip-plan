@@ -25,7 +25,7 @@ interface Day {
 const initialDays: Day[] = [
   {
     id: '1',
-    title: 'יום 1: נחיתה בטוקיו',
+    title: 'נחיתה בטוקיו',
     subtitle: 'הגעה למלון והתארגנות',
     date: '2025-04-12',
     city: 'טוקיו',
@@ -39,7 +39,7 @@ const initialDays: Day[] = [
   },
   {
     id: '2',
-    title: 'יום 2: שיבויה והסביבה',
+    title: 'שיבויה והסביבה',
     subtitle: 'תצפית שיבויה סקיי ומעבר ה...',
     date: '2025-04-13',
     city: 'טוקיו',
@@ -53,7 +53,7 @@ const initialDays: Day[] = [
   },
   {
     id: '3',
-    title: 'יום 3: נסיעה לקיוטו',
+    title: 'נסיעה לקיוטו',
     subtitle: 'רכבת מהירה שינקנסן',
     date: '2025-04-14',
     city: 'קיוטו',
@@ -67,7 +67,7 @@ const initialDays: Day[] = [
   },
   {
     id: '4',
-    title: 'יום 4: מקדשים בקיוטו',
+    title: 'מקדשים בקיוטו',
     subtitle: '',
     date: '2025-04-15',
     city: 'קיוטו',
@@ -81,7 +81,7 @@ const initialDays: Day[] = [
   },
   {
     id: '5',
-    title: 'יום 5: נארה ואיילים',
+    title: 'נארה ואיילים',
     subtitle: 'פארק נארה ומקדש טודאי-ג\'י',
     date: '2025-04-16',
     city: 'נארה',
@@ -119,14 +119,75 @@ const formatDate = (dateString: string) => {
 
 // --- Components ---
 
+
+const CurrentDayStepper = () => {
+  const [emojis, setEmojis] = useState<{id: number, x: number, y: number, r: number}[]>([]);
+  const timerRef = useRef<any>(null);
+  const emojiIdCounter = useRef(0);
+
+  const spawnEmoji = () => {
+    const id = emojiIdCounter.current++;
+    const x = (Math.random() - 0.5) * 150;
+    const y = - (Math.random() * 150 + 50);
+    const r = (Math.random() - 0.5) * 180;
+    setEmojis(prev => [...prev, { id, x, y, r }]);
+    setTimeout(() => {
+      setEmojis(prev => prev.filter(e => e.id !== id));
+    }, 1000);
+  };
+
+  const startBurst = (e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation();
+    if (timerRef.current) return;
+    spawnEmoji();
+    timerRef.current = setInterval(spawnEmoji, 80);
+  };
+
+  const stopBurst = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  return (
+    <div 
+      className="absolute top-4 -right-[52.4px] z-20 w-10 h-10 rounded-full border-4 border-[#F9FAFB] flex items-center justify-center bg-white shadow-md cursor-pointer touch-none select-none"
+      onMouseDown={startBurst}
+      onMouseUp={stopBurst}
+      onMouseLeave={stopBurst}
+      onTouchStart={startBurst}
+      onTouchEnd={stopBurst}
+      onTouchCancel={stopBurst}
+    >
+      <img src="/favicon.svg" alt="Favicon" className="w-8 h-8 rounded-full border-2 border-emerald-500 pointer-events-none object-cover" />
+      <AnimatePresence>
+        {emojis.map(emoji => (
+          <motion.div
+            key={emoji.id}
+            initial={{ opacity: 1, scale: 0.2, x: 0, y: 0, rotate: 0 }}
+            animate={{ opacity: 0, scale: 1.5, x: emoji.x, y: emoji.y, rotate: emoji.r }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-2xl z-30 drop-shadow-sm"
+          >
+            🇯🇵
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const SwipeableCard = ({ 
   day, 
+  index,
   isExpanded, 
   onToggle, 
   onEdit, 
   onDeleteRequest 
 }: { 
   day: Day; 
+  index: number;
   isExpanded: boolean; 
   onToggle: () => void; 
   onEdit: (day: Day) => void;
@@ -178,7 +239,7 @@ const SwipeableCard = ({
                   <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block uppercase">פעיל כעת</span>
                )}
                <h3 className={`font-bold text-base leading-tight ${day.isCurrent ? 'text-emerald-900' : 'text-gray-700'}`}>
-                 {day.title || 'יום חדש'}
+                 {day.title ? `יום ${index + 1}: ${day.title}` : `יום ${index + 1}`}
                </h3>
                
                {(day.date || day.subtitle) && (
@@ -420,7 +481,7 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: Day, onClose: 
             value={formData.title} 
             onChange={e => handleChange('title', e.target.value)}
             className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm transition-colors bg-transparent" 
-            placeholder="לדוגמה: יום 4 - קיוטו"
+            placeholder="לדוגמה: ביקור במקדשים"
           />
         </div>
         
@@ -582,11 +643,13 @@ export default function App() {
     const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
     let activeDayId: string | null = null;
-    const computedDays = loadedDays.map(day => {
+    const sortedDays = [...loadedDays].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const computedDays = sortedDays.map(day => {
       const isCurrent = day.date === todayString;
       const isPast = day.date < todayString;
       if (isCurrent) activeDayId = day.id;
-      return { ...day, isCurrent, isPast };
+      const cleanedTitle = (day.title || '').replace(/^יום\s*\d+\s*[:-]?\s*/, '');
+      return { ...day, title: cleanedTitle, isCurrent, isPast };
     });
     
     setDays(computedDays);
@@ -647,8 +710,11 @@ export default function App() {
     const today = new Date();
     const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    const computedDays = newDays.map(day => ({
+    const sortedDays = [...newDays].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    
+    const computedDays = sortedDays.map(day => ({
       ...day,
+      title: (day.title || '').replace(/^יום\s*\d+\s*[:-]?\s*/, ''),
       isCurrent: day.date === todayString,
       isPast: day.date < todayString
     }));
@@ -728,6 +794,9 @@ export default function App() {
       const newDay = { ...savedDay, id: Date.now().toString() };
       newDays = [...days, newDay];
     }
+    
+    newDays.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    
     syncData(tripTitle, newDays);
     setEditingDay(null);
   };
@@ -811,18 +880,19 @@ export default function App() {
                 {days.map((day, index) => (
                   <div key={day.id} className={`relative z-10 ${day.isPast ? 'opacity-70' : ''}`} ref={day.isCurrent ? currentDayRef : null}>
                     {/* Stepper Dot */}
-                    <div 
-                      className={`absolute top-4 -right-[3.15rem] z-10 mt-1 w-10 h-10 rounded-full border-4 border-[#F9FAFB] flex items-center justify-center transition-colors duration-300
-                        ${day.isCurrent 
-                           ? 'bg-emerald-500 shadow-md text-white' 
-                           : 'bg-gray-100 text-gray-400'
-                        }`} 
-                    >
-                       {day.isCurrent ? <ChevronUp size={18} strokeWidth={3} className="rotate-180" /> : <span className="text-xs font-bold">{index + 1 < 10 ? `0${index + 1}` : index + 1}</span>}
-                    </div>
+                    {day.isCurrent ? (
+                      <CurrentDayStepper />
+                    ) : (
+                      <div 
+                        className="absolute top-4 -right-[52.4px] z-10 w-10 h-10 rounded-full border-4 border-[#F9FAFB] flex items-center justify-center transition-colors duration-300 bg-gray-100 text-gray-400"
+                      >
+                         <span className="text-xs font-bold">{index + 1 < 10 ? `0${index + 1}` : index + 1}</span>
+                      </div>
+                    )}
                     
                     <SwipeableCard 
                       day={day}
+                      index={index}
                       isExpanded={expandedDayId === day.id}
                       onToggle={() => toggleDay(day.id)}
                       onEdit={setEditingDay}
