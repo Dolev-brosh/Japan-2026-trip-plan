@@ -18,7 +18,8 @@
           },
           "schema": {
             "title": "string",
-            "days": "array"
+            "days": "array",
+            "expenses": "array"
           }
         }
       }

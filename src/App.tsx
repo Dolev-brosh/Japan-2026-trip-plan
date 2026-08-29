@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
+import { ExpensesScreen, Expense } from './ExpensesScreen';
 import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical, Download, Upload, Ticket, Bell, Link, Image as ImageIcon, X } from 'lucide-react';
 import { HexColorPicker, HexColorInput } from 'react-colorful';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -1003,6 +1004,8 @@ const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<strin
 
 export default function App() {
   const [days, setDays] = useState<TimelineItem[]>([]);
+  const [currentView, setCurrentView] = useState<'timeline' | 'expenses'>('timeline');
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [tripTitle, setTripTitle] = useState('מסלול טיול ביפן');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -1028,7 +1031,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  const processLoadedData = (loadedDays: TimelineItem[], loadedTitle: string) => {
+  const processLoadedData = (loadedDays: TimelineItem[], loadedTitle: string, loadedExpenses?: Expense[]) => {
     const today = new Date();
     const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
@@ -1044,6 +1047,9 @@ export default function App() {
     
     setDays(computedDays);
     setTripTitle(loadedTitle);
+    if (loadedExpenses) {
+      setExpenses(loadedExpenses);
+    }
     
     if (!hasInitializedExpand.current && activeDayId) {
        setExpandedDayId(activeDayId);
@@ -1067,16 +1073,16 @@ export default function App() {
       const unsubscribe = onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
-          processLoadedData(data.days || [], data.title || 'מסלול טיול ביפן');
+          processLoadedData(data.days || [], data.title || 'מסלול טיול ביפן', data.expenses || []);
         } else {
           const localData = localStorage.getItem('itinerary_main');
-          let dataToSave = { title: 'מסלול טיול ביפן', days: initialDays };
+          let dataToSave = { title: 'מסלול טיול ביפן', days: initialDays, expenses: [] };
           if (localData) {
              try {
                 dataToSave = JSON.parse(localData);
              } catch (e) {}
           }
-          processLoadedData(dataToSave.days || [], dataToSave.title || 'מסלול טיול ביפן');
+          processLoadedData(dataToSave.days || [], dataToSave.title || 'מסלול טיול ביפן', (dataToSave as any).expenses || []);
           setDoc(docRef, dataToSave, { merge: true });
         }
       });
@@ -1086,17 +1092,17 @@ export default function App() {
       if (localData) {
         try {
            const parsed = JSON.parse(localData);
-           processLoadedData(parsed.days || [], parsed.title || 'מסלול טיול ביפן');
+           processLoadedData(parsed.days || [], parsed.title || 'מסלול טיול ביפן', parsed.expenses || []);
         } catch (e) {
-           processLoadedData(initialDays, 'מסלול טיול ביפן');
+           processLoadedData(initialDays, 'מסלול טיול ביפן', []);
         }
       } else {
-        processLoadedData(initialDays, 'מסלול טיול ביפן');
+        processLoadedData(initialDays, 'מסלול טיול ביפן', []);
       }
     }
   }, [user, loadingAuth]);
 
-  const syncData = async (newTitle: string, newDays: TimelineItem[]) => {
+  const syncData = async (newTitle: string, newDays: TimelineItem[], newExpenses?: Expense[]) => {
     const today = new Date();
     const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
@@ -1111,13 +1117,19 @@ export default function App() {
 
     setTripTitle(newTitle);
     setDays(computedDays);
+    if (newExpenses) {
+      setExpenses(newExpenses);
+    }
+    
+    const expensesToSave = newExpenses || expenses;
 
     if (user) {
       const docRef = doc(db, 'users', user.uid, 'trip', 'itinerary');
       const safeDays = JSON.parse(JSON.stringify(computedDays));
-      await setDoc(docRef, { title: newTitle || '', days: safeDays }, { merge: true });
+      const safeExpenses = JSON.parse(JSON.stringify(expensesToSave));
+      await setDoc(docRef, { title: newTitle || '', days: safeDays, expenses: safeExpenses }, { merge: true });
     } else {
-      localStorage.setItem('itinerary_main', JSON.stringify({ title: newTitle, days: computedDays }));
+      localStorage.setItem('itinerary_main', JSON.stringify({ title: newTitle, days: computedDays, expenses: expensesToSave }));
     }
   };
 
@@ -1261,10 +1273,12 @@ export default function App() {
           <div className="flex items-center gap-3 relative">
              <div className="relative">
                <button 
-                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                 onClick={() => setCurrentView(currentView === 'timeline' ? 'expenses' : 'timeline')}
                  className="relative z-50 block transition-transform active:scale-95"
                >
-                 <img src="/favicon.svg" alt="לוגו אפליקציה" className="w-10 h-10 rounded-lg border border-gray-200 shadow-sm hover:ring-2 hover:ring-emerald-100 transition-all" />
+                 <div className={`w-10 h-10 rounded-lg border flex items-center justify-center transition-colors shadow-sm ${currentView === 'expenses' ? 'bg-[#bc002d] border-[#a00026]' : 'bg-white border-gray-200'}`}>
+                   <div className={`w-4 h-4 rounded-full transition-colors ${currentView === 'expenses' ? 'bg-white' : 'bg-[#bc002d]'}`} />
+                 </div>
                </button>
                
                <AnimatePresence>
@@ -1354,6 +1368,22 @@ export default function App() {
 
        {/* Main Split Layout */}
        <main className="flex flex-1 overflow-hidden relative">
+          {currentView === 'expenses' ? (
+            <div className="w-full h-full absolute inset-0 z-40 bg-[#F9FAFB]">
+              <ExpensesScreen 
+                expenses={expenses} 
+                onSaveExpense={(exp) => {
+                   const isNew = !expenses.some(e => e.id === exp.id);
+                   const newExpenses = isNew ? [...expenses, exp] : expenses.map(e => e.id === exp.id ? exp : e);
+                   syncData(tripTitle, days, newExpenses);
+                }} 
+                onDeleteExpense={(id) => {
+                   const newExpenses = expenses.filter(e => e.id !== id);
+                   syncData(tripTitle, days, newExpenses);
+                }}
+              />
+            </div>
+          ) : null}
           
           {/* Timeline Section */}
           <div className={`w-full ${editingItem ? 'hidden lg:block lg:w-3/5' : ''} lg:w-3/5 lg:border-l border-gray-200 overflow-y-auto p-4 sm:p-6 space-y-4 pb-32`}>
@@ -1428,7 +1458,7 @@ export default function App() {
           </AnimatePresence>
           
           {/* Floating Action Button */}
-          {!editingItem && (
+          {!editingItem && currentView !== 'expenses' && (
             <>
                <AnimatePresence>
                  {isAddMenuOpen && (
