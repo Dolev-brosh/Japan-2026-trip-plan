@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
 import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical, Download, Upload, Ticket, Bell, Link, Image as ImageIcon, X } from 'lucide-react';
 import { HexColorPicker, HexColorInput } from 'react-colorful';
-import Zoom from 'react-medium-image-zoom';
-import 'react-medium-image-zoom/dist/styles.css';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
@@ -202,11 +202,13 @@ const SwipeableCard = ({
   isExpanded, 
   onToggle, 
   onEdit, 
-  onDeleteRequest 
+  onDeleteRequest,
+  onImageClick
 }: { 
   day: TimelineItem; 
   index: number;
   isExpanded: boolean; 
+  onImageClick?: (url: string) => void;
   onToggle: () => void; 
   onEdit: (day: TimelineItem) => void;
   onDeleteRequest: (id: string) => void;
@@ -444,9 +446,7 @@ const SwipeableCard = ({
                      
                      {day.imageUrl && (
                         <div className="col-span-2 mt-4 overflow-hidden rounded-lg shadow-sm" onClick={e => e.stopPropagation()}>
-                          <Zoom>
-                            <img src={day.imageUrl} alt="Attachment" className="w-full h-48 sm:h-64 object-cover" />
-                          </Zoom>
+                          <img src={day.imageUrl} alt="Attachment" className="w-full h-48 sm:h-64 object-cover" onClick={(e) => { e.stopPropagation(); onImageClick && onImageClick(day.imageUrl || ""); }} />
                         </div>
                      )}
                     </div>
@@ -471,9 +471,7 @@ const SwipeableCard = ({
                           ))}
                           {day.imageUrl && (
                             <div className="overflow-hidden rounded-lg h-full min-h-[4.5rem]" onClick={e => e.stopPropagation()}>
-                              <Zoom>
-                                <img src={day.imageUrl} alt="Attachment" className="w-full h-full object-cover" style={{ minHeight: '4.5rem' }} />
-                              </Zoom>
+                              <img src={day.imageUrl} alt="Attachment" className="w-full h-full object-cover" style={{ minHeight: '4.5rem' }} onClick={(e) => { e.stopPropagation(); onImageClick && onImageClick(day.imageUrl || ""); }} />
                             </div>
                           )}
                         </div>
@@ -501,9 +499,7 @@ const SwipeableCard = ({
                           ))}
                           {day.imageUrl && (
                             <div className="overflow-hidden rounded-lg h-full min-h-[4.5rem]" onClick={e => e.stopPropagation()}>
-                              <Zoom>
-                                <img src={day.imageUrl} alt="Attachment" className="w-full h-full object-cover" style={{ minHeight: '4.5rem' }} />
-                              </Zoom>
+                              <img src={day.imageUrl} alt="Attachment" className="w-full h-full object-cover" style={{ minHeight: '4.5rem' }} onClick={(e) => { e.stopPropagation(); onImageClick && onImageClick(day.imageUrl || ""); }} />
                             </div>
                           )}
                         </div>
@@ -967,7 +963,7 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
       </motion.div>
     </div>
   );
-}
+};
 
 // --- Main App ---
 
@@ -1007,6 +1003,7 @@ const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<strin
 
 export default function App() {
   const [days, setDays] = useState<TimelineItem[]>([]);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [tripTitle, setTripTitle] = useState('מסלול טיול ביפן');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   
@@ -1398,6 +1395,7 @@ export default function App() {
                       )}
                       
                       <SwipeableCard 
+                        onImageClick={setFullscreenImage}
                         day={day}
                         index={dayNumber > 0 ? dayNumber - 1 : 0}
                         isExpanded={expandedDayId === day.id}
@@ -1478,6 +1476,40 @@ export default function App() {
          onClose={() => setDeletingDayId(null)} 
          onConfirm={handleDeleteConfirm} 
        />
+
+      {/* Fullscreen Image Viewer */}
+      <AnimatePresence>
+        {fullscreenImage && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-white/70 backdrop-blur-md"
+            onClick={() => setFullscreenImage(null)}
+            dir="ltr"
+          >
+            <button 
+              className="absolute top-4 right-4 z-[101] text-gray-700 p-2 rounded-full bg-white/50 hover:bg-white/80 border border-gray-200/50 shadow-sm transition-colors"
+              onClick={() => setFullscreenImage(null)}
+            >
+              <X size={24} />
+            </button>
+            <div className="w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <TransformWrapper
+                initialScale={1}
+                minScale={0.5}
+                maxScale={5}
+                centerOnInit
+              >
+                <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }} contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <img src={fullscreenImage} alt="Fullscreen" className="max-w-full max-h-full object-contain" />
+                </TransformComponent>
+              </TransformWrapper>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
