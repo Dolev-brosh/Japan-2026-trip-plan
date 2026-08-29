@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
-import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical, Download, Upload, Ticket, Bell } from 'lucide-react';
+import { Pencil, Trash2, Plus, Calendar, ChevronUp, ChevronLeft, User, MapPin, Building2, Bed, AlignLeft, MoreVertical, Download, Upload, Ticket, Bell, Link, Image as ImageIcon, X } from 'lucide-react';
 import { HexColorPicker, HexColorInput } from 'react-colorful';
+import Zoom from 'react-medium-image-zoom';
+import 'react-medium-image-zoom/dist/styles.css';
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
@@ -10,6 +12,8 @@ export interface TicketField {
   id: string;
   label: string;
   value: string;
+  isLink?: boolean;
+  linkUrl?: string;
 }
 
 export interface TimelineItem {
@@ -31,6 +35,7 @@ export interface TimelineItem {
   
   color?: string;
   textColor?: 'white' | 'black';
+  imageUrl?: string;
   fields?: TicketField[];
   notes?: string;
 }
@@ -222,16 +227,16 @@ const SwipeableCard = ({
   const isReminder = day.type === 'reminder';
 
   const isDarkText = day.textColor === 'black';
-  const nonDayTitleClass = isDarkText ? 'text-gray-900' : 'text-white';
-  const nonDaySubtitleClass = isDarkText ? 'text-gray-700' : 'text-white/80';
-  const nonDayBorderClass = isDarkText ? 'border-gray-900/20' : 'border-white/20';
-  const nonDayTextMutedClass = isDarkText ? 'text-gray-600' : 'text-white/70';
+  const nonDayTitleClass = isDarkText ? 'text-gray-700' : 'text-white';
+  const nonDaySubtitleClass = isDarkText ? 'text-gray-500' : 'text-white/80';
+  const nonDayBorderClass = isDarkText ? 'border-gray-700/20' : 'border-white/20';
+  const nonDayTextMutedClass = isDarkText ? 'text-gray-500' : 'text-white/70';
   const nonDayBgClass = isDarkText ? 'bg-black/5' : 'bg-black/10';
-  const nonDayIconClass = isDarkText ? 'text-gray-800 hover:text-gray-900' : 'text-white hover:text-gray-200';
+  const nonDayIconClass = isDarkText ? 'text-gray-500 hover:text-gray-700' : 'text-white hover:text-gray-200';
 
   const cardStyle = isDay ? 
     (day.isCurrent ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-white border-gray-200 text-gray-700') :
-    `${isDarkText ? 'text-gray-900' : 'text-white'} border-transparent`;
+    `${isDarkText ? 'text-gray-700' : 'text-white'} border-transparent`;
 
   const bgColor = !isDay ? (day.color || (isTicket ? '#10b981' : '#f59e0b')) : (day.isCurrent ? '#ecfdf5' : '#ffffff');
 
@@ -436,22 +441,41 @@ const SwipeableCard = ({
                          </div>
                        </div>
                      )}
+                     
+                     {day.imageUrl && (
+                        <div className="col-span-2 mt-4 overflow-hidden rounded-lg shadow-sm" onClick={e => e.stopPropagation()}>
+                          <Zoom>
+                            <img src={day.imageUrl} alt="Attachment" className="w-full h-48 sm:h-64 object-cover" />
+                          </Zoom>
+                        </div>
+                     )}
                     </div>
                   )}
 
                   {/* Ticket Content */}
                   {isTicket && (
                     <div className={`pt-4 border-t ${nonDayBorderClass}`}>
-                      {(!day.fields || day.fields.length === 0) ? (
+                      {(!day.fields || day.fields.length === 0) && !day.imageUrl ? (
                         <p className={`${nonDayTextMutedClass} text-sm italic`}>אין פרטים נוספים</p>
                       ) : (
                         <div className="grid grid-cols-2 gap-4">
-                          {day.fields.map(f => (
+                          {(day.fields || []).map(f => (
                             <div key={f.id} className={`${nonDayBgClass} rounded-lg p-3 backdrop-blur-sm`}>
                               <p className={`text-[10px] ${nonDayTextMutedClass} uppercase tracking-wider mb-1 font-bold`}>{f.label}</p>
-                              <p className={`text-sm font-semibold ${nonDayTitleClass} truncate`}>{f.value}</p>
+                              {f.isLink ? (
+                                <a href={(f.linkUrl || f.value || '').startsWith('http') ? (f.linkUrl || f.value) : `https://${f.linkUrl || f.value}`} target="_blank" rel="noreferrer" className={`text-sm font-semibold ${nonDayTitleClass} truncate underline block`} onClick={e => e.stopPropagation()}>{f.value || 'קישור'}</a>
+                              ) : (
+                                <p className={`text-sm font-semibold ${nonDayTitleClass} truncate`}>{f.value}</p>
+                              )}
                             </div>
                           ))}
+                          {day.imageUrl && (
+                            <div className="overflow-hidden rounded-lg h-full min-h-[4.5rem]" onClick={e => e.stopPropagation()}>
+                              <Zoom>
+                                <img src={day.imageUrl} alt="Attachment" className="w-full h-full object-cover" style={{ minHeight: '4.5rem' }} />
+                              </Zoom>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -459,8 +483,31 @@ const SwipeableCard = ({
 
                   {/* Reminder Content */}
                   {isReminder && (
-                    <div className={`pt-4 border-t ${nonDayBorderClass} text-sm leading-relaxed ${nonDayTitleClass} font-medium whitespace-pre-wrap break-words`}>
-                      {day.notes || <span className={`${nonDayTextMutedClass} italic`}>אין תוכן...</span>}
+                    <div className={`pt-4 border-t ${nonDayBorderClass}`}>
+                      <div className={`text-sm leading-relaxed ${nonDayTitleClass} font-medium whitespace-pre-wrap break-words mb-4`}>
+                        {day.notes || <span className={`${nonDayTextMutedClass} italic`}>אין תוכן...</span>}
+                      </div>
+                      {((day.fields && day.fields.length > 0) || day.imageUrl) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {(day.fields || []).map(f => (
+                            <div key={f.id} className={`${nonDayBgClass} rounded-lg p-3 backdrop-blur-sm`}>
+                              <p className={`text-[10px] ${nonDayTextMutedClass} uppercase tracking-wider mb-1 font-bold`}>{f.label}</p>
+                              {f.isLink ? (
+                                <a href={(f.linkUrl || f.value || '').startsWith('http') ? (f.linkUrl || f.value) : `https://${f.linkUrl || f.value}`} target="_blank" rel="noreferrer" className={`text-sm font-semibold ${nonDayTitleClass} truncate underline block`} onClick={e => e.stopPropagation()}>{f.value || 'קישור'}</a>
+                              ) : (
+                                <p className={`text-sm font-semibold ${nonDayTitleClass} truncate`}>{f.value}</p>
+                              )}
+                            </div>
+                          ))}
+                          {day.imageUrl && (
+                            <div className="overflow-hidden rounded-lg h-full min-h-[4.5rem]" onClick={e => e.stopPropagation()}>
+                              <Zoom>
+                                <img src={day.imageUrl} alt="Attachment" className="w-full h-full object-cover" style={{ minHeight: '4.5rem' }} />
+                              </Zoom>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -471,6 +518,7 @@ const SwipeableCard = ({
     </div>
   );
 };
+
 const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, onClose: () => void, onConfirm: () => void }) => {
   if (!isOpen) return null;
   return (
@@ -483,8 +531,8 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }: { isOpen: boolean, o
         <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-5">
            <Trash2 size={24} />
         </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">מחיקת יום טיול</h3>
-        <p className="text-gray-500 mb-8 leading-relaxed">האם את/ה בטוח/ה שברצונך למחוק יום זה? פעולה זו תסיר את כל המידע השמור ולא ניתן לשחזרו.</p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">מחיקת פריט</h3>
+        <p className="text-gray-500 mb-8 leading-relaxed">האם את/ה בטוח/ה שברצונך למחוק פריט זה? פעולה זו תסיר את כל המידע השמור ולא ניתן לשחזרו.</p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl transition-colors">ביטול</button>
           <button onClick={onConfirm} className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-2xl shadow-lg shadow-red-500/20 transition-colors">מחיקה</button>
@@ -502,7 +550,7 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateField = (id: string, key: 'label' | 'value', val: string) => {
+  const updateField = (id: string, key: keyof TicketField, val: any) => {
     setFormData(prev => ({
       ...prev,
       fields: (prev.fields || []).map(f => f.id === id ? { ...f, [key]: val } : f)
@@ -523,18 +571,35 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
     }));
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      try {
+        const base64Str = await compressImage(e.target.files[0]);
+        handleChange('imageUrl', base64Str);
+      } catch (err) {
+        console.error('Image upload failed', err);
+      }
+    }
+  };
+
   const handlePasteDescription = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData('Text');
     if (pastedText.startsWith('"') && pastedText.endsWith('"')) {
       e.preventDefault();
       const cleanedText = pastedText.replace(/^"|"$/g, '');
+      
       const target = e.target as HTMLTextAreaElement;
       const start = target.selectionStart;
       const end = target.selectionEnd;
+      
       const currentDesc = formData.description || '';
       const newValue = currentDesc.substring(0, start) + cleanedText + currentDesc.substring(end);
+      
       handleChange('description', newValue);
-      setTimeout(() => { target.selectionStart = target.selectionEnd = start + cleanedText.length; }, 0);
+      
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + cleanedText.length;
+      }, 0);
     }
   }
 
@@ -543,25 +608,35 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
     if (pastedText.startsWith('"') && pastedText.endsWith('"')) {
       e.preventDefault();
       const cleanedText = pastedText.replace(/^"|"$/g, '');
+      
       const target = e.target as HTMLTextAreaElement;
       const start = target.selectionStart;
       const end = target.selectionEnd;
+      
       const currentDesc = formData.transitDetails || '';
       const newValue = currentDesc.substring(0, start) + cleanedText + currentDesc.substring(end);
+      
       handleChange('transitDetails', newValue);
-      setTimeout(() => { target.selectionStart = target.selectionEnd = start + cleanedText.length; }, 0);
+      
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + cleanedText.length;
+      }, 0);
     }
   };
 
-  const ticketColors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#1f2937'];
-  const reminderColors = ['#fffbeb', '#eff6ff', '#fff1f2', '#ecfdf5', '#f3f4f6'];
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6" dir="rtl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-6" dir="rtl">
+      {/* Dark overlay */}
       <motion.div 
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
-        className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+        onClick={onClose}
       />
+      
+      {/* Modal Content */}
       <motion.div 
         initial={{ opacity: 0, y: 50, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 50, scale: 0.95 }} transition={{ duration: 0.3, ease: 'easeOut' }}
         className="relative w-full sm:max-w-2xl max-h-[90vh] bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10"
@@ -573,7 +648,7 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
           <button onClick={onClose} className="text-sm text-gray-400 font-medium hover:text-emerald-600 transition-colors">ביטול</button>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-6 bg-white">
           <div className="space-y-4">
             <div>
               <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">כותרת</label>
@@ -611,41 +686,66 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">מיקום לינה</label>
+                  <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">אזור לינה</label>
                   <input 
                     value={formData.accommodationArea || ''} onChange={e => handleChange('accommodationArea', e.target.value)}
                     className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" 
                   />
                 </div>
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+                <div>
                   <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">שם המלון</label>
                   <input 
                     value={formData.hotelName || ''} onChange={e => handleChange('hotelName', e.target.value)}
                     className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" 
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">קישור למלון (אופציונלי)</label>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">קישור למלון</label>
                   <input 
                     value={formData.hotelLink || ''} onChange={e => handleChange('hotelLink', e.target.value)}
-                    className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" dir="ltr"
+                    className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" 
+                    dir="ltr"
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">מספר לילה</label>
+                  <input 
+                    type="number" value={formData.nightNumber || ''} onChange={e => handleChange('nightNumber', parseInt(e.target.value) || 0)}
+                    className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">סה"כ לילות במלון זה</label>
+                  <input 
+                    type="number" value={formData.totalNights || ''} onChange={e => handleChange('totalNights', parseInt(e.target.value) || 0)}
+                    className="w-full border-b border-gray-200 py-2 focus:border-emerald-500 outline-none text-sm bg-transparent" 
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">נסיעות (אופציונלי)</label>
+                <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">פרטי נסיעות (אופציונלי)</label>
                 <textarea 
-                  rows={3} value={formData.transitDetails || ''} onChange={e => handleChange('transitDetails', e.target.value)} onPaste={handlePasteTransitDetails}
-                  className="w-full border border-gray-200 rounded-lg p-3 min-h-[80px] focus:border-emerald-500 outline-none text-sm resize-y bg-transparent" 
+                  rows={2} value={formData.transitDetails || ''} onChange={e => handleChange('transitDetails', e.target.value)}
+                  onPaste={handlePasteTransitDetails}
+                  className="w-full border border-gray-200 rounded-lg p-3 min-h-[60px] focus:border-emerald-500 outline-none text-sm resize-y bg-transparent" 
+                  placeholder="לדוגמה: רכבת ב-09:00 מתחנת שינג'וקו..."
                 />
               </div>
+
               <div>
-                <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">תיאור מסלול יומי</label>
+                <label className="block text-[11px] font-bold text-gray-500 mb-1 uppercase tracking-wider">תיאור המסלול היומי</label>
                 <textarea 
-                  rows={5} value={formData.description || ''} onChange={e => handleChange('description', e.target.value)} onPaste={handlePasteDescription}
-                  className="w-full border border-gray-200 rounded-lg p-3 min-h-[120px] focus:border-emerald-500 outline-none text-sm resize-y bg-transparent" 
+                  rows={5} value={formData.description || ''} onChange={e => handleChange('description', e.target.value)}
+                  onPaste={handlePasteDescription}
+                  className="w-full border border-gray-200 rounded-lg p-3 min-h-[120px] focus:border-emerald-500 outline-none text-sm resize-y bg-transparent leading-relaxed" 
+                  placeholder="פרט את מסלול הטיול כאן..."
                 />
               </div>
             </div>
@@ -711,29 +811,7 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
 
               </div>
               
-              <div>
-                <label className="block text-[11px] font-bold text-gray-500 mb-3 uppercase tracking-wider">שדות דינמיים</label>
-                <div className="space-y-3">
-                  {(formData.fields || []).map((f) => (
-                    <div key={f.id} className="flex gap-2 items-center">
-                      <input 
-                        value={f.label} onChange={(e) => updateField(f.id, 'label', e.target.value)}
-                        placeholder="כותרת (לדוג: מס' טיסה)" className="flex-1 border-b border-gray-200 py-1 text-sm outline-none focus:border-emerald-500"
-                      />
-                      <input 
-                        value={f.value} onChange={(e) => updateField(f.id, 'value', e.target.value)}
-                        placeholder="ערך (לדוג: LY123)" className="flex-1 border-b border-gray-200 py-1 text-sm outline-none focus:border-emerald-500"
-                      />
-                      <button onClick={() => removeField(f.id)} className="text-gray-400 hover:text-red-500 p-1">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                  <button onClick={addField} className="text-emerald-600 text-sm font-medium flex items-center gap-1 hover:text-emerald-700 mt-2">
-                    <Plus size={16} /> הוסף שדה
-                  </button>
-                </div>
-              </div>
+
             </div>
           )}
 
@@ -805,6 +883,77 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
               </div>
             </div>
           )}
+          {formData.type !== 'day' && (
+            <>
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <label className="block text-[11px] font-bold text-gray-500 mb-3 uppercase tracking-wider">תמונה (אופציונלי)</label>
+              {formData.imageUrl ? (
+                <div className="relative inline-block">
+                  <img src={formData.imageUrl} alt="Uploaded" className="w-full max-w-[200px] h-auto rounded-lg border border-gray-200" />
+                  <button 
+                    onClick={() => handleChange('imageUrl', '')}
+                    className="absolute -top-2 -right-2 bg-white text-gray-500 hover:text-red-500 rounded-full p-1 shadow-md border border-gray-200"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center gap-2 px-4 py-2 border border-gray-200 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-fit text-sm text-gray-600 font-medium">
+                  <ImageIcon size={18} className="text-gray-400" />
+                  העלה תמונה
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                </label>
+              )}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <label className="block text-[11px] font-bold text-gray-500 mb-3 uppercase tracking-wider">שדות דינמיים</label>
+              <div className="space-y-3">
+                {(formData.fields || []).map((f) => (
+                  <div key={f.id} className={`flex flex-col gap-2 ${f.isLink ? 'p-2 bg-emerald-50/30 rounded-md border border-emerald-100/50' : ''}`}>
+                    <div className="flex gap-2 items-center w-full">
+                      <input 
+                        value={f.label} onChange={(e) => updateField(f.id, 'label', e.target.value)}
+                        placeholder="כותרת" className="flex-[0.4] min-w-0 border-b border-gray-200 py-1 text-sm outline-none focus:border-emerald-500 bg-transparent"
+                      />
+                      <input 
+                        value={f.value} onChange={(e) => updateField(f.id, 'value', e.target.value)}
+                        placeholder={f.isLink ? "טקסט שיוצג" : "ערך"} className="flex-[0.6] min-w-0 border-b border-gray-200 py-1 text-sm outline-none focus:border-emerald-500 bg-transparent"
+                        dir="auto"
+                      />
+                      <button 
+                        onClick={() => updateField(f.id, 'isLink', !f.isLink)} 
+                        className={`p-1 rounded transition-colors shrink-0 ${f.isLink ? 'text-emerald-600 bg-emerald-100/70' : 'text-gray-400 hover:text-gray-600'}`}
+                        title="הגדר כלינק"
+                      >
+                        <Link size={16} />
+                      </button>
+                      <button onClick={() => removeField(f.id)} className="text-gray-400 hover:text-red-500 p-1 shrink-0">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <AnimatePresence>
+                      {f.isLink && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                          <div className="pt-1 pb-1">
+                            <input
+                              value={f.linkUrl || ''} onChange={(e) => updateField(f.id, 'linkUrl', e.target.value)}
+                              placeholder="קישור מלא (https://...)" className="w-full border-b border-emerald-200 py-1 text-sm outline-none focus:border-emerald-500 bg-transparent text-left placeholder-right text-gray-700"
+                              dir="ltr"
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))}
+                <button onClick={addField} className="text-emerald-600 text-sm font-medium flex items-center gap-1 hover:text-emerald-700 mt-2">
+                  <Plus size={16} /> הוסף שדה
+                </button>
+              </div>
+            </div>
+            </>
+          )}
         </div>
         
         <div className="p-6 bg-gray-50 border-t border-gray-100 shrink-0">
@@ -821,6 +970,40 @@ const EditModal = ({ day, onClose, onSave }: { key?: string, day: TimelineItem, 
 }
 
 // --- Main App ---
+
+
+const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(event.target?.result as string);
+        }
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
 
 export default function App() {
   const [days, setDays] = useState<TimelineItem[]>([]);
@@ -1185,6 +1368,7 @@ export default function App() {
                   const isDay = !day.type || day.type === 'day';
                   const isTicket = day.type === 'ticket';
                   const isReminder = day.type === 'reminder';
+                  const isDarkText = day.textColor === 'black';
                   
                   // Compute the day number (only count actual days up to this index)
                   const dayNumber = days.slice(0, index + 1).filter(d => !d.type || d.type === 'day').length;
@@ -1199,7 +1383,7 @@ export default function App() {
                           className={`absolute top-4 z-10 rounded-full border-4 border-[#F9FAFB] flex items-center justify-center transition-colors duration-300 ${
                             isDay 
                               ? 'w-10 h-10 -right-[52.4px] bg-gray-100 text-gray-400' 
-                              : 'w-8 h-8 -right-[48.4px] text-white -mt-[14px]'
+                              : `w-8 h-8 -right-[48.4px] -mt-[14px] ${isDarkText ? 'text-gray-900' : 'text-white'}`
                           }`}
                           style={!isDay ? { backgroundColor: day.color || (isTicket ? '#10b981' : '#f59e0b') } : {}}
                         >
